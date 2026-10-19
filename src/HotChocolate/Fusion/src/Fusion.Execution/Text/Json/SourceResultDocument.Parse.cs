@@ -190,7 +190,7 @@ public sealed partial class SourceResultDocument
         ReadOnlySequence<byte> input,
         out int usedChunks)
     {
-        var segments = arena.RentSegmentTable(64);
+        var segments = arena.RentSegmentTable(16);
         var totalLength = input.Length;
 
         if (totalLength == 0)
