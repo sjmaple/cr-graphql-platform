@@ -45,6 +45,31 @@ public sealed class ApolloLookupMergePlanningTests : FusionTestBase
         }
         """;
 
+    private const string CategorizedDetails =
+        """
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+        type Product @key(fields: "id") {
+          id: ID!
+          name: String!
+          category: Category!
+        }
+
+        type Category @key(fields: "id") {
+          id: ID!
+        }
+        """;
+
+    private const string Categories =
+        """
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+        type Category @key(fields: "id") {
+          id: ID!
+          label: String!
+        }
+        """;
+
     [Fact]
     public void Plan_Should_MergeApolloLookups_When_IdenticalLookupsShareDepth()
     {
@@ -72,7 +97,7 @@ public sealed class ApolloLookupMergePlanningTests : FusionTestBase
     }
 
     [Fact]
-    public void Plan_Should_KeepApolloLookupsSeparate_When_IdenticalLookupsDifferInDepth()
+    public void Plan_Should_MergeApolloLookupsAcrossDepths_When_ShallowerLookupHasNoDependents()
     {
         // arrange
         var schema = ComposeSchema(Catalog, Featured, Details);
@@ -90,6 +115,40 @@ public sealed class ApolloLookupMergePlanningTests : FusionTestBase
               brands {
                 featured {
                   name
+                }
+              }
+            }
+            """);
+
+        // assert
+        MatchSnapshot(plan);
+    }
+
+    [Fact]
+    public void Plan_Should_KeepApolloLookupsSeparate_When_ShallowerLookupHasDependents()
+    {
+        // arrange
+        var schema = ComposeSchema(Catalog, Featured, CategorizedDetails, Categories);
+
+        // act
+        // the Categories lookup for 'products.category' depends on the shallower
+        // Details lookup, and the deeper Categories lookup does not wait for it
+        var plan = PlanOperation(
+            schema,
+            """
+            {
+              products {
+                name
+                category {
+                  label
+                }
+              }
+              brands {
+                featured {
+                  name
+                  category {
+                    label
+                  }
                 }
               }
             }
